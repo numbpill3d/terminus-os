@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINUS_OS</title>
+    <style>
+        :root {
+            --text-primary: #ff0000;
+            --text-dim: #800000;
+            --background: #000000;
+            --terminal-bg: #0a0a0a;
+            --shadow-red: rgba(255, 0, 0, 0.2);
+            --font-terminal: 'Courier New', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none;
+        }
+
+        @font-face {
+            font-family: 'VT323';
+            src: url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text-primary);
+            font-family: var(--font-terminal);
+            line-height: 1.6;
+            overflow: hidden;
+            min-height: 100vh;
+        }
+
+        /* Custom Cursor */
+        .cursor {
+            width: 12px;
+            height: 24px;
+            background: var(--text-primary);
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            animation: blink 1s infinite;
+            mix-blend-mode: difference;
+        }
+
+        /* CRT Effect */
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                rgba(255, 0, 0, 0.1) 50%,
+                rgba(0, 0, 0, 0.1) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.15;
+        }
+
+        .screen-flicker {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--shadow-red);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 998;
+            animation: flicker 0.15s infinite;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Terminal Window */
+        .terminal {
+            background: var(--terminal-bg);
+            border: 2px solid var(--text-primary);
+            border-radius: 5px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px var(--shadow-red);
+        }
+
+        .terminal-header {
+            background: var(--text-primary);
+            color: var(--background);
+            padding: 5px 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .terminal-content {
+            padding: 20px;
+        }
+
+        /* ASCII Header */
+        .ascii-header {
+            white-space: pre;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.2;
+            margin: 20px auto;
+            text-align: center;
+            color: var(--text-primary);
+            text-shadow: 0 0 10px var(--text-primary);
+        }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .nav-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            padding: 5px 10px;
+            border-left: 2px solid var(--text-primary);
+            transition: all 0.3s;
+            opacity: 0.7;
+        }
+
+        .nav-link:hover {
+            opacity: 1;
+            padding-left: 20px;
+            background: var(--shadow-red);
+        }
+
+        .nav-link::before {
+            content: '>';
+            margin-right: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .nav-link:hover::before {
+            opacity: 1;
+        }
+
+        /* Content Sections */
+        .content-section {
+            margin: 30px 0;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fade-in 0.5s forwards;
+        }
+
+        .glitch-text {
+            font-size: 2em;
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+        }
+
+        .glitch-text::before {
+            left: 2px;
+            text-shadow: -2px 0 var(--text-primary);
+            animation: glitch-1 2s infinite linear alternate-reverse;
+        }
+
+        .glitch-text::after {
+            left: -2px;
+            text-shadow: 2px 0 var(--text-dim);
+            animation: glitch-2 3s infinite linear alternate-reverse;
+        }
+
+        /* Stats Display */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            border: 1px solid var(--text-primary);
+            padding: 10px;
+            background: var(--shadow-red);
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        /* Animations */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.1; }
+            50% { opacity: 0; }
+            100% { opacity: 0.1; }
+        }
+
+        @keyframes glitch-1 {
+            0%, 100% { clip-path: inset(50% 0 30% 0); }
+            20% { clip-path: inset(20% 0 60% 0); }
+            40% { clip-path: inset(70% 0 10% 0); }
+            60% { clip-path: inset(10% 0 80% 0); }
+            80% { clip-path: inset(40% 0 40% 0); }
+        }
+
+        @keyframes glitch-2 {
+            0%, 100% { clip-path: inset(40% 0 40% 0); }
+            20% { clip-path: inset(60% 0 20% 0); }
+            40% { clip-path: inset(20% 0 60% 0); }
+            60% { clip-path: inset(70% 0 10% 0); }
+            80% { clip-path: inset(10% 0 70% 0); }
+        }
+
+        @keyframes fade-in {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Boot Sequence Screen */
+        .boot-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+            color: var(--text-primary);
+            z-index: 1000;
+            padding: 20px;
+            font-family: var(--font-terminal);
+            overflow: hidden;
+        }
+
+        .boot-text {
+            margin: 5px 0;
+            opacity: 0;
+            animation: type-out 0.1s forwards;
+        }
+
+        @keyframes type-out {
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="cursor"></div>
+    <div class="crt-overlay"></div>
+    <div class="screen-flicker"></div>
+
+    <div class="boot-screen" id="bootScreen">
+        <div class="boot-text">TERMINUS_OS v1.1.9</div>
+        <div class="boot-text">INITIALIZING CORE SYSTEMS...</div>
+        <div class="boot-text">LOADING ARCANE PROTOCOLS...</div>
+        <div class="boot-text">ACCESSING DEEP WEB ARCHIVES...</div>
+        <div class="boot-text">ESTABLISHING QUANTUM TUNNELS...</div>
+        <div class="boot-text">[WARNING]: REALITY ANCHORS UNSTABLE</div>
+        <div class="boot-text">BYPASS ACCEPTED - WELCOME SEEKER</div>
+    </div>
+
+    <div class="container">
+        <div class="terminal">
+            <div class="terminal-header">
+                <span>TERMINUS_OS:/home/user$ _</span>
+                <span>[ ? | ! | X ]</span>
+            </div>
+            <div class="terminal-content">
+                <div class="ascii-header">
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+  ▓   TERMINUS_OS - DIGITAL ARCHAEOLOGIST   ▓
+  ▓     [CLASSIFIED//LEVEL 7 ACCESS]        ▓
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+                </div>
+
+                <nav class="nav">
+                    <a href="#" class="nav-link">> MANIFESTO.txt</a>
+                    <a href="#" class="nav-link">> ARTIFACTS.dat</a>
+                    <a href="#" class="nav-link">> TRANSMISSION.log</a>
+                    <a href="#" class="nav-link">> CONTACT.exe</a>
+                </nav>
+
+                <div class="content-section">
+                    <div class="glitch-text" data-text="ACCESSING_ARCHIVES">ACCESSING_ARCHIVES</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">SYSTEM_INTEGRITY</div>
+                            <div class="stat-value">97.3%</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">REALITY_ANCHOR</div>
+                            <div class="stat-value">STABLE</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">QUANTUM_FLUX</div>
+                            <div class="stat-value">0.31π</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">VOID_RESONANCE</div>
+                            <div class="stat-value">ACTIVE</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Custom cursor
+        const cursor = document.querySelector('.cursor');
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+
+        // Boot sequence
+        function typeWriter(element, text, i = 0) {
+            if (i === 0) {
+                element.textContent = '';
+            }
+            if (i < text.length) {
+                element.textContent += text.charAt(i);
+                setTimeout(() => typeWriter(element, text, i + 1), 50);
+            }
+        }
+
+        // Initialize boot sequence
+        document.addEventListener('DOMContentLoaded', () => {
+            const bootScreen = document.getElementById('bootScreen');
+            const bootTexts = document.querySelectorAll('.boot-text');
+            
+            bootTexts.forEach((text, index) => {
+                setTimeout(() => {
+                    const content = text.textContent;
+                    text.textContent = '';
+                    typeWriter(text, content);
+                }, index * 1000);
+            });
+
+            setTimeout(() => {
+                bootScreen.style.animation = 'fade-out 1s forwards';
+                setTimeout(() => bootScreen.remove(), 1000);
+            }, bootTexts.length * 1000 + 1000);
+        });
+
+        // Random glitch effect
+        function createGlitch() {
+            const glitch = document.createElement('div');
+            glitch.style.position = 'fixed';
+            glitch.style.top = Math.random() * 100 + 'vh';
+            glitch.style.left = Math.random() * 100 + 'vw';
+            glitch.style.width = Math.random() * 100 + 'px';
+            glitch.style.height = '1px';
+            glitch.style.background = 'var(--text-primary)';
+            glitch.style.zIndex = '1000';
+            
+            document.body.appendChild(glitch);
+            
+            setTimeout(() => glitch.remove(), 100);
+        }
+
+        setInterval(createGlitch, 3000);
+
+        // Terminal text effect
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('mouseover', () => {
+                const chars = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+                const originalText = link.textContent;
+                
+                let interval = setInterval(() => {
+                    link.textContent = originalText.split('').map((char, i) => 
+                        Math.random() > 0.8 ? chars[Math.floor(Math.random() * chars.length)] : char
+                    ).join('');
+                }, 50);
+
+                setTimeout(() => {
+                    clearInterval(interval);
+                    link.textContent = originalText;
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
